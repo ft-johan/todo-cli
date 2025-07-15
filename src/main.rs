@@ -1,18 +1,23 @@
 use std::char;
 
-use color_eyre::{eyre::{Ok, Result}};
+use color_eyre::eyre::{Ok, Result};
 use ratatui::{
+    DefaultTerminal, Frame,
     crossterm::{
-        event::{self, Event},
+        event::{self, Event, KeyEvent},
         style::Color,
-    }, layout::{Constraint, Layout}, style::{Style, Stylize}, symbols::border::ROUNDED, widgets::{Block, BorderType, List, ListItem, ListState, Paragraph, Widget}, DefaultTerminal, Frame
+    },
+    layout::{Constraint, Layout},
+    style::{Style, Stylize},
+    symbols::border::ROUNDED,
+    widgets::{Block, BorderType, List, ListItem, ListState, Paragraph, Widget},
 };
 
 #[derive(Debug, Default)]
 struct AppState {
     items: Vec<TodoItem>,
     list_state: ListState,
-    is_add_new:bool,
+    is_add_new: bool,
 }
 
 #[derive(Debug, Default)]
@@ -22,7 +27,7 @@ struct TodoItem {
 }
 fn main() -> Result<()> {
     let mut state = AppState::default();
-    state.is_add_new=false;
+    state.is_add_new = false;
 
     state.items.push(TodoItem {
         is_done: false,
@@ -53,33 +58,55 @@ fn run(mut terminal: DefaultTerminal, app_state: &mut AppState) -> Result<()> {
         terminal.draw(|f| render(f, app_state))?;
 
         if let Event::Key(key) = event::read()? {
-            match key.code {
-                event::KeyCode::Esc => {
+            if app_state.is_add_new {
+                if handle_add_new(key, app_state){
+                    app_state.is_add_new = false;
+                }
+            } else {
+                if handle_key(key, app_state) {
                     break;
                 }
-                event::KeyCode::Char(char) => match char {
-                    'A' =>{
-                        app_state.is_add_new=true;
-                    }
-                    'D' =>{
-                        if let Some(index) = app_state.list_state.selected(){
-                            app_state.items.remove(index);
-                        }
-                    }
-                    'k' => {
-                        app_state.list_state.select_previous();
-                    }
-                    'j' => {
-                        app_state.list_state.select_next();
-                    }
-                    _ => {}
-                },
-
-                _ => {}
             }
         }
     }
     Ok(())
+}
+
+fn handle_add_new(key: KeyEvent, app_state: &mut AppState) -> bool {
+    match key.code {
+      event::KeyCode::Enter =>{
+        return true;
+      }  
+      _ =>{}
+    }
+false
+}
+fn handle_key(key: KeyEvent, app_state: &mut AppState) -> bool {
+    match key.code {
+        event::KeyCode::Esc => {
+            return true;
+        }
+        event::KeyCode::Char(char) => match char {
+            'A' => {
+                app_state.is_add_new = true;
+            }
+            'D' => {
+                if let Some(index) = app_state.list_state.selected() {
+                    app_state.items.remove(index);
+                }
+            }
+            'k' => {
+                app_state.list_state.select_previous();
+            }
+            'j' => {
+                app_state.list_state.select_next();
+            }
+            _ => {}
+        },
+
+        _ => {}
+    }
+    false
 }
 
 fn render(frame: &mut Frame, app_state: &mut AppState) {
@@ -103,4 +130,7 @@ fn render(frame: &mut Frame, app_state: &mut AppState) {
     .highlight_symbol(">")
     .highlight_style(Style::default().fg(Color::Black.into()));
     frame.render_stateful_widget(list, inner_area, &mut app_state.list_state);
+    if app_state.is_add_new {
+        Paragraph::new("Hello").render(frame.area(),frame.buffer_mut());
+    }
 }
